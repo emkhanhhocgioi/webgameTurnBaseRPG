@@ -1,17 +1,23 @@
 const hre = require("hardhat");
 
 async function main() {
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Deploying contract with account:", deployer.address);
+  const BidiToken = await hre.ethers.getContractFactory("BidiTOKEN");
 
-  const initialReward = 10; 
-  const BidiTOKEN = await hre.ethers.getContractFactory("BidiTOKEN");
-  const bidiToken = await BidiTOKEN.deploy(initialReward); 
+  const rewardPerBlock = 50; // bạn có thể đổi giá trị reward ở đây
+  const token = await BidiToken.deploy(rewardPerBlock);
 
-  console.log(`✅ BidiTOKEN deployed at address: ${bidiToken.target}`); 
+  await token.waitForDeployment();
+
+  const contractAddress = await token.getAddress();
+  console.log(`✅ Contract deployed at: ${contractAddress}`);
+
+  // 👉 In ra ABI của contract
+  const artifact = await hre.artifacts.readArtifact("BidiTOKEN");
+  console.log("🔍 ABI:");
+  console.log(JSON.stringify(artifact.abi, null, 2)); // in đẹp, dễ đọc
 }
 
 main().catch((error) => {
-  console.error("❌ Deployment failed:", error);
+  console.error(error);
   process.exitCode = 1;
 });

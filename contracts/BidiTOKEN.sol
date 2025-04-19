@@ -20,7 +20,16 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
     }
-    function dropTokkenAftermob(uint256 amount) public onlyOwner {
-        _mint(msg.sender, amount);
+
+    
+    function dropTokenToUser(address user, uint256 amount) public onlyOwner {
+    _mint(user, amount);
+    }
+    function sendTokenToUser(address user, uint256 amount) public onlyOwner {
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
+        _transfer(msg.sender, user, amount);
     }
 }
+
+
+
