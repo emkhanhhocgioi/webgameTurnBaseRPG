@@ -2,13 +2,13 @@ const hre = require("hardhat");
 
 async function main() {
     const [owner] = await hre.ethers.getSigners(); // Lấy tài khoản deployer
-    const tokenAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";  // Địa chỉ contract token
-    const recipient = "0x8404dbA8df49E3183Bae3678df1c53690f1C8Ab8";  // Địa chỉ ví MetaMask
+    const tokenAddress = "0x73678f56420df54547f9C07b91c0E2B577CcbE46";  // Địa chỉ contract token
+    const recipient = "0xdd51C61689dbfbAAE324430367961B27E419da90";  // Địa chỉ ví MetaMask
 
     const MyToken = await hre.ethers.getContractAt("BidiTOKEN", tokenAddress);
     
 
-    const amount = hre.ethers.parseUnits("0.5", 18); 
+    const amount = hre.ethers.parseUnits("0.00001", 18); 
 
     console.log(`🔄 Sending ${hre.ethers.formatUnits(amount, 18)} MTK to ${recipient}...`);
 

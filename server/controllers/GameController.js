@@ -1,11 +1,14 @@
 
 const mobdata = require('../models/mobdata'); // Import dữ liệu mob từ file mobdata.js
 const getMobEvent = require('../models/MobEvent'); // Import dữ liệu mob từ file mobdata.js
-
+const {droptokentoplayer} = require('../controllers/BDChainController'); // Import hàm từ BDChainController.js
 // Hàm lấy giá trị ngẫu nhiên trong khoảng min và max
+const Character = require('../models/Character'); // Import dữ liệu mob từ file mobdata.js
+
 const getRandomValue = (min, max) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
 
 function RandomMobBaseOnDungeonLevel (dlevel)  { 
     const mobAmonut = {
@@ -29,11 +32,12 @@ const getmobdataSpawn = (dlevel, randomIndex) => {
 
     const resData = randomIndex.map((index, i) => {
         const selectedMob = shuffledMobs[i % shuffledMobs.length]; // nếu index dài hơn số mob, dùng vòng lặp
-
+        const hp = selectedMob.hp + getRandomValue(0, 5); // Tăng HP ngẫu nhiên từ 0 đến 5
         return {
             index,
             mob: { ...selectedMob },
-            hp: selectedMob.hp + getRandomValue(0, 5),
+            hp: hp,
+            maxHp: hp,
             dmg: selectedMob.dmg + getRandomValue(0, 5),
             armor: selectedMob.armor + getRandomValue(0, 5),
             agility: selectedMob.agility + getRandomValue(0, 5),
@@ -89,9 +93,143 @@ const spawnRedBox = async (req, res) => {
     }
 };
 
+const MobRandomTurn = async (req, res) => {
+    const { gamestate } = req.body;
+    console.log("GameState", gamestate);
+
+    if (!gamestate) {
+        console.log("⚠ Không có GameState trong request body");
+        return res.status(400).json({ success: false, message: "Missing GameState" });
+    }
+
+    const mobdata = gamestate.mobstat;
+    const playerdata = gamestate.playerStat;
+    const userdata = gamestate.Userdata;
+    console.log("userdata", userdata);
+
+    try {
+        const mobHPPercent = (mobdata.hp / mobdata.maxHp) * 100;
+        const playerHPPercent = (playerdata.hp / playerdata.maxHp) * 100;
+        console.log("Mob HP Percent:", mobHPPercent);
+        console.log("Player HP Percent:", playerHPPercent);
+        let actionCode;
+
+        if (mobHPPercent <= 20 && mobHPPercent > 0) {
+            actionCode = 2; // ví dụ: "defend"
+        console.log("🤖 Mob chọn hành động:", actionCode);
+        res.status(200).json({  action: actionCode });
+        } else if (playerHPPercent <= 20) {
+            actionCode = 1; // ví dụ: "attack"
+            
+        console.log("🤖 Mob chọn hành động:", actionCode);
+        res.status(200).json({  action: actionCode });
+        } else if( mobHPPercent <= 0 ) {
+            actionCode = 3;
+            const resFinal  ={
+                actionCode: actionCode,
+                DroptokenJson: await droptokentoplayer(userdata.walletAddress,mobdata.mobLevel)
+            } 
+            console.log("🤖 Mob :", resFinal.DroptokenJson);
+            res.status(200).json({ action: actionCode, resFinal });
+            
+            // ví dụ: "defend"
+        }else {
+            // Random số 1 đến 3
+            actionCode = 1;
+            
+        console.log("🤖 Mob chọn hành động:", actionCode);
+        res.status(200).json({  action: actionCode });
+        }
+        
+
+
+    } catch (error) {
+        console.log("❌ Lỗi khi xử lý lượt của Mob:", error);
+        return res.status(500).json({ success: false, message: "Lỗi server" });
+    }
+};
+
+const playerExp = async (req, res) => {
+    const { UserID, exp } = req.body;
+    console.log("UserID", UserID);
+    console.log("exp", exp);
+
+    if (!UserID || !exp) {
+        console.log("⚠ Không có UserID hoặc exp trong request body");
+        return res.status(400).json({ success: false, message: "Missing UserID or exp" });
+    }
+
+    try {
+        await client.connect();
+        const db = client.db("DungeonRunnerGame");
+        const doc = db.collection("Character");
+
+        // Tìm kiếm người dùng theo UserID
+        const existingCharacter = await doc.findOne({ UserID: UserID });
+        if (!existingCharacter) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Tính toán tổng exp mới
+        const newExp = existingCharacter.exp + exp;
+
+        // Cập nhật exp cho người dùng
+        const updatedCharacter = await doc.updateOne(
+            { UserID: UserID },
+            { $set: { exp: newExp, level: calculateLevel(newExp) } }
+        );
+
+        if (updatedCharacter.modifiedCount === 0) {
+            return res.status(500).json({ success: false, message: "Failed to update user experience" });
+        }
+
+        res.status(200).json({ success: true, message: "Experience updated successfully" });
+    } catch (error) {
+        console.log("❌ Lỗi khi cập nhật exp:", error);
+        return res.status(500).json({ success: false, message: "Lỗi server" });
+    }
+};
+
+// Function to calculate level based on total experience
+const calculateLevel = (totalExp) => {
+    let level = 1;  // Starting at level 1
+    let expThreshold = 0;
+
+    // Loop through the level thresholds to find the correct level
+    for (let i = 1; i <= 50; i++) {
+        expThreshold += playerlevelModifer(i);
+        if (totalExp < expThreshold) {
+            break;
+        }
+        level = i;
+    }
+
+    return level;
+};
+
+const playerlevelModifer = (level) => {    
+    if (level >= 1 && level <= 10) {
+        return 120;
+    } else if (level > 10 && level <= 20) {
+        return 300;
+    } else if (level > 20 && level <= 30) {
+        return 600;
+    } else if (level > 30 && level <= 40) {
+        return 1200;
+    } else if (level > 40 && level <= 50) {
+        return 2400;
+    } else {
+        return 0; // Default modifier if level is out of range
+    }
+}
+
+
 
 
 module.exports = {
     spawnRedBox,
     getRandomValue,
+    MobRandomTurn,
+    playerExp
+
 };

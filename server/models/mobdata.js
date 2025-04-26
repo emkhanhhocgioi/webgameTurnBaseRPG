@@ -8,7 +8,7 @@ const mobdata = {
       "armor": 2,
       "agility": 1,
       "type": "melee",
-      
+      "xp":10,
     },
     {
       "name": "Skeleton",
@@ -18,6 +18,7 @@ const mobdata = {
       "armor": 2,
       "agility": 1,
       "type": "range",
+      "xp":10,
      
     }
   ]

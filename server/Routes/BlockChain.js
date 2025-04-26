@@ -5,7 +5,7 @@ const {droptokentoplayer,getTokenBalanceOfUser}  = require('../controllers/BDCha
 const { ethers } = require('hardhat'); // Import ethers từ hardhat  
 
 bcrouter.post('/droptokentoplayer', droptokentoplayer );
-bcrouter.get('/getTokenBalanceOfUser', getTokenBalanceOfUser ); // Đường dẫn mới cho hàm getTokenBalanceOfUser
+bcrouter.post('/getTokenBalanceOfUser', getTokenBalanceOfUser ); // Đường dẫn mới cho hàm getTokenBalanceOfUser
 
 module.exports = bcrouter;
 

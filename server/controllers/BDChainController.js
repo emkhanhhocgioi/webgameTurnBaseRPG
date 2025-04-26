@@ -1,7 +1,8 @@
+const { Contract } = require('ethers');
 const hre = require('hardhat');
 const { ethers } = hre;
 
-const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
 
 let contract = null; // 👈 Biến dùng chung toàn cục trong module
 
@@ -10,7 +11,7 @@ const initContract = async () => {
     const contractArtifact = await hre.artifacts.readArtifact("BidiTOKEN");
     const signer = await provider.getSigner(); 
     contract = new ethers.Contract(
-        "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9", // Địa chỉ contract
+        "0x73678f56420df54547f9C07b91c0E2B577CcbE46", // Địa chỉ contract
         contractArtifact.abi,
         signer
     );
@@ -19,13 +20,15 @@ const initContract = async () => {
 
 // Hàm gọi contract — Dùng ở bất kỳ đâu
 const getTokenBalanceOfUser = async (req, res) => {
-    const address = req.query.address;
+    const address = req.body.address;
 
     if (!address ) {
         return res.status(400).json({ error: "Địa chỉ không hợp lệ hoặc thiếu!" });
     }
 
     try {
+      
+        console.log("contractaddress", contract);
         const balance = await contract.balanceOf(address);
         const formatted = ethers.formatUnits(balance, 18);
         return res.json({ address, balance: formatted });
@@ -37,30 +40,59 @@ const getTokenBalanceOfUser = async (req, res) => {
 
 
 
-const droptokentoplayer = async (req,res) => {
-    const {address,dlevel} = req.body; // Lấy address và dlevel từ request body
-    console.log("address",address);
-    console.log("dlevel",dlevel);
+
+
+
+
+const droptokentoplayer = async (address, dlevel) => {
+    console.log("address", address);
+    console.log("dlevel", dlevel);
+
     if (!address) {
-        console.log("⚠ Không có địa chỉ người nhận trong request body");
+        console.log("⚠ Không có địa chỉ người nhận");
+        return { success: false, message: "Thiếu địa chỉ người nhận" };
     }
     if (!dlevel) {
-        console.log("⚠ Không có dlevel trong request body");
+        console.log("⚠ Không có dlevel");
+        return { success: false, message: "Thiếu dlevel" };
+    }
+    if (!contract) {
+        console.log("⚠ Contract chưa được khởi tạo");
+        throw new Error("Contract chưa được khởi tạo");
     }
 
-    if (!contract) throw new Error("⚠ Contract chưa được khởi tạo");
+    // Tạo xác suất dựa trên level
+    const getDropChance = (level) => {
+        if (level >= 6) return 100;
+        const baseChance = 40; // Cơ bản 40%
+        const bonusPerLevel = 10; // Mỗi level +10%
+        return Math.min(baseChance + bonusPerLevel * level, 100);
+    };
 
+    const chance = getDropChance(dlevel);
+    const random = Math.random() * 100;
+
+    console.log(`🎯 Drop chance: ${chance}% | Random rolled: ${random.toFixed(2)}`);
+
+    if (random > chance) {
+        console.log("❌ Không rớt token lần này");
+        return { success: false, message: "Không nhận được token lần này" };
+    }
+
+    // Nếu random thành công -> gửi token
     const amount = getRewardbasedOnLevel(dlevel);
     try {
         const tx = await contract.dropTokenToUser(address, ethers.parseUnits(amount.toString(), 18));
         await tx.wait();
-        res.status(200).json({ success: true, txHash: tx.hash });
-        console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${address}`);      
-        
+        console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${address}`);
+        return { success: true, txHash: tx.hash, amount };
     } catch (err) {
-        throw err;
+        console.error("❌ Lỗi khi gửi token:", err);
+        return { success: false, message: "Gửi token thất bại", error: err.toString() };
     }
 };
+
+
 
 const ExchangeTokken = async (req , res) => {
     const{amount,toAddress} = req.body; // Lấy address và amount từ request body

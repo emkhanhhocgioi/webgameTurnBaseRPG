@@ -29,7 +29,9 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         require(balanceOf(msg.sender) >= amount, "Insufficient balance");
         _transfer(msg.sender, user, amount);
     }
+
+
+ 
+
 }
-
-
 

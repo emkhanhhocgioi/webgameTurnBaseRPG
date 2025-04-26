@@ -1,7 +1,7 @@
 const mongodb = require('mongodb');
 const MongoClient = mongodb.MongoClient;
 const ServerApiVersion  = mongodb.ServerApiVersion;
-var uri = "mongodb+srv://hidrabula:khanh1308@dungeonrunnergame.ofyzg.mongodb.net/?retryWrites=true&w=majority&appName=DungeonRunnerGame";
+var uri = "mongodb+srv://khanhnee:khanh1308@cluster0.7ubjm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 const client = new MongoClient(uri, {
     serverApi: {
