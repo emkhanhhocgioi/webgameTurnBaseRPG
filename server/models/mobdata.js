@@ -1,3 +1,5 @@
+const { id } = require("ethers");
+
 const mobdata = {
   "mobs": [
     {
@@ -9,6 +11,11 @@ const mobdata = {
       "agility": 1,
       "type": "melee",
       "xp":10,
+      "dropitem": {
+        "id": 0,
+        "droprate": 100,
+      },
+
     },
     {
       "name": "Skeleton",
@@ -19,6 +26,10 @@ const mobdata = {
       "agility": 1,
       "type": "range",
       "xp":10,
+      "dropitem": {
+        "id": 0,    
+        "droprate": 100,}
+      
      
     }
   ]

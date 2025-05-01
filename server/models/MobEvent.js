@@ -1,3 +1,4 @@
+
 const MobMoveEvent = {
     MobEvent: [
         {
@@ -84,65 +85,70 @@ function potToCoord(pot, gridSize) {
     const playerPot = CurrentState.playerPot;
     const gridSize = 12;
   
-    const totalChance = MobMoveEvent.MobEvent.reduce((sum, event) => sum + event.chance, 0);
-    const random = getRandomValue(0, totalChance);
+    // Check nếu mobState rỗng
+    if (mobState.length === 0) {
+      console.log("Game Over");
+      
+    }else{
+      console.log(mobState);
   
-    let currentChance = 0;
-    let Turnevent;
-    let Desc ; 
-    let mobDataAfterEvent = [];
-  
-    for (const event of MobMoveEvent.MobEvent) {
-      currentChance += event.chance;
-      if (random < currentChance) {
-        Turnevent = event.name;
-        Desc = event.description;
-        console.log(`Event triggered: ${Turnevent}`);
-        break;
+      const totalChance = MobMoveEvent.MobEvent.reduce((sum, event) => sum + event.chance, 0);
+      const random = getRandomValue(0, totalChance);
+    
+      let currentChance = 0;
+      let Turnevent;
+      let Desc; 
+      let mobDataAfterEvent = [];
+    
+      for (const event of MobMoveEvent.MobEvent) {
+        currentChance += event.chance;
+        if (random < currentChance) {
+          Turnevent = event.name;
+          Desc = event.description;
+          console.log(`Event triggered: ${Turnevent}`);
+          break;
+        }
       }
-    }
-  
-    if (Turnevent == 'Blood Moon') {
-        mobDataAfterEvent = mobState.map(mob => {
-          return {
-            ...mob,
-            armor: parseFloat((Number(mob.armor) + Number(mob.armor) * 0.02).toFixed(2)),
-            dmg: parseFloat((Number(mob.dmg) + Number(mob.dmg) * 0.02).toFixed(2)),
-          };
-        });
+    
+      if (Turnevent == 'Blood Moon') {
+        mobDataAfterEvent = mobState.map(mob => ({
+          ...mob,
+          armor: parseFloat((Number(mob.armor) + Number(mob.armor) * 0.02).toFixed(2)),
+          dmg: parseFloat((Number(mob.dmg) + Number(mob.dmg) * 0.02).toFixed(2)),
+        }));
       } else if (Turnevent == 'Increased Agreessiveness') {
-        mobDataAfterEvent = mobState.map(mob => {
-          return {
-            ...mob,
-            index: moveMobCloser(playerPot, mob.index, gridSize, 2)
-          };
-        });   
+        mobDataAfterEvent = mobState.map(mob => ({
+          ...mob,
+          index: moveMobCloser(playerPot, mob.index, gridSize, 2)
+        }));   
       } else if (Turnevent == 'Witches Gooo') {
-        mobDataAfterEvent = mobState.map(mob => {
-          return {
-            ...mob,
-            hp: parseFloat((Number(mob.hp) + Number(mob.hp) * 0.02).toFixed(2)),
-          };
-        });
+        mobDataAfterEvent = mobState.map(mob => ({
+          ...mob,
+          hp: parseFloat((Number(mob.hp) + Number(mob.hp) * 0.02).toFixed(2)),
+        }));
       } else if (Turnevent == 'Mobs are confused') {
-        mobDataAfterEvent = mobState.map(mob => {
-          return {
-            ...mob,
-            hp: parseFloat((Number(mob.hp) - Number(mob.hp) * 0.02).toFixed(2)),
-          };
-        });
+        mobDataAfterEvent = mobState.map(mob => ({
+          ...mob,
+          hp: parseFloat((Number(mob.hp) - Number(mob.hp) * 0.02).toFixed(2)),
+        }));
       } else if (Turnevent == 'Nothing Happens') {
         mobDataAfterEvent = mobState;
       }
       
-    // Trả kết quả thành công
-    res.status(200).json({
-      success: true,
-      Turnevent,
-      Desc,
-      mobDataAfterEvent
-    });
+      res.status(200).json({
+        success: true,
+        Turnevent,
+        Desc,
+        mobDataAfterEvent
+      });
+    }
+  
+   
   };
+  
+
+
+
 module.exports = {
     getMobEvent,
 };

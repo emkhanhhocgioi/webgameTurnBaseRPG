@@ -2,9 +2,10 @@
 const mobdata = require('../models/mobdata'); // Import dữ liệu mob từ file mobdata.js
 const getMobEvent = require('../models/MobEvent'); // Import dữ liệu mob từ file mobdata.js
 const {droptokentoplayer} = require('../controllers/BDChainController'); // Import hàm từ BDChainController.js
+const items = require('../models/Item.js'); // Import dữ liệu item từ file gnmetadata.js
 // Hàm lấy giá trị ngẫu nhiên trong khoảng min và max
 const Character = require('../models/Character'); // Import dữ liệu mob từ file mobdata.js
-
+const {addItemtoServedAndChacracter} = require(`../controllers/CharacterController`)
 const getRandomValue = (min, max) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -35,7 +36,6 @@ const getmobdataSpawn = (dlevel, randomIndex) => {
         const hp = selectedMob.hp + getRandomValue(0, 5); // Tăng HP ngẫu nhiên từ 0 đến 5
         return {
             index,
-            mob: { ...selectedMob },
             hp: hp,
             maxHp: hp,
             dmg: selectedMob.dmg + getRandomValue(0, 5),
@@ -44,6 +44,10 @@ const getmobdataSpawn = (dlevel, randomIndex) => {
             mobType: selectedMob.type,
             mobName: selectedMob.name,
             mobLevel: selectedMob.level,
+            dropitem:[{
+                id  :selectedMob.dropitem.id,
+                droprate : selectedMob.dropitem.droprate,
+            }]
         };
     });
 
@@ -69,7 +73,7 @@ const spawnRedBox = async (req, res) => {
     try {
         const GRID_SIZE = 12;
         const totalGrid = GRID_SIZE * GRID_SIZE;
-        const redBoxCount = await RandomMobBaseOnDungeonLevel(dlevel);
+        const redBoxCount = Math.min(await RandomMobBaseOnDungeonLevel(dlevel), 3); // Ensure max 3 red boxes
 
         const randomIndexes = new Set();
         while (randomIndexes.size < redBoxCount) {
@@ -77,10 +81,11 @@ const spawnRedBox = async (req, res) => {
         }
 
         const uniqueRandomIndexes = [...randomIndexes];
-       
 
         const resData = getmobdataSpawn(dlevel, uniqueRandomIndexes);
-        console.log("resData", resData);
+        resData.forEach(mob => {
+            console.log("Drop item for mob:", JSON.stringify(mob, null, 2)); // Log detailed mob data
+        });
         if (!resData) {
             console.log("⚠ Không tìm thấy mob nào cho dlevel:", dlevel);
             return res.status(404).json({ success: false, message: "No mobs found for the given dungeon level" });
@@ -92,6 +97,22 @@ const spawnRedBox = async (req, res) => {
         res.status(500).json({ success: false, message: "Lỗi server" });
     }
 };
+const getRandomDropItem = async (mobdata) => {
+    for (const item of mobdata.dropitem) {
+        console.log("Drop Item ID:", item.id);
+        console.log("Drop Chance:", item.droprate);
+
+        const dropItem = items.find(i => i.id === item.id);
+        if (dropItem) {
+            const randomChance = Math.random() * 100; // Random percentage from 0 to 100
+            if (randomChance <= item.droprate) {
+                return dropItem;
+            }
+        }
+    }
+    return null; // No item dropped or no matching item found
+};
+
 
 const MobRandomTurn = async (req, res) => {
     const { gamestate } = req.body;
@@ -104,14 +125,20 @@ const MobRandomTurn = async (req, res) => {
 
     const mobdata = gamestate.mobstat;
     const playerdata = gamestate.playerStat;
+    console.log(playerdata)
     const userdata = gamestate.Userdata;
     console.log("userdata", userdata);
 
     try {
         const mobHPPercent = (mobdata.hp / mobdata.maxHp) * 100;
         const playerHPPercent = (playerdata.hp / playerdata.maxHp) * 100;
-        console.log("Mob HP Percent:", mobHPPercent);
-        console.log("Player HP Percent:", playerHPPercent);
+        console.log("test :" + mobdata);
+        if (mobdata && mobdata.dropitem && mobdata.dropitem.length > 0) {
+            mobdata.dropitem.forEach(item => {
+                console.log("Drop Item ID:", item.id);
+                console.log("Drop Chance:", item.droprate);
+            });
+        }
         let actionCode;
 
         if (mobHPPercent <= 20 && mobHPPercent > 0) {
@@ -125,11 +152,16 @@ const MobRandomTurn = async (req, res) => {
         res.status(200).json({  action: actionCode });
         } else if( mobHPPercent <= 0 ) {
             actionCode = 3;
+            const itemjson = await getRandomDropItem(mobdata)
+            const testItemimport = await addItemtoServedAndChacracter(itemjson,playerdata)
+            console.log(testItemimport)
             const resFinal  ={
                 actionCode: actionCode,
+                item:itemjson,
                 DroptokenJson: await droptokentoplayer(userdata.walletAddress,mobdata.mobLevel)
             } 
             console.log("🤖 Mob :", resFinal.DroptokenJson);
+            console.log("🤖 Mob :", resFinal.item);
             res.status(200).json({ action: actionCode, resFinal });
             
             // ví dụ: "defend"
@@ -148,6 +180,7 @@ const MobRandomTurn = async (req, res) => {
         return res.status(500).json({ success: false, message: "Lỗi server" });
     }
 };
+
 
 const playerExp = async (req, res) => {
     const { UserID, exp } = req.body;

@@ -15,6 +15,10 @@ const UserplayerData = new mongoose.Schema({
         required: true,
         unique: true,   
     },
+    privatekey: {
+        type: String,
+        required: true,
+    },
     email: {
         type: String,
         required: true

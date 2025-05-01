@@ -1,0 +1,14 @@
+{
+  "name": "Crystal Staff",
+  "description": "A magical staff imbued with crystal energy.",
+  "image": "https://yourdomain.com/images/crystal_staff.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 20,
+      "dmg": 8,
+      "armor": 0,
+      "agility": 3
+    }
+  ]
+}

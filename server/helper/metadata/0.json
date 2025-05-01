@@ -1,0 +1,14 @@
+{
+  "name": "Wooden Practice Sword",
+  "description": "A sword made out of wood.",
+  "image": "https://yourdomain.com/images/sword.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 0,
+      "dmg": 5,
+      "armor": 0,
+      "agility": 0
+    }
+  ]
+}

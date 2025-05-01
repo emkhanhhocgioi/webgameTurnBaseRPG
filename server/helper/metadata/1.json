@@ -1,0 +1,14 @@
+{
+  "name": "Iron Longsword",
+  "description": "A sturdy longsword forged from iron.",
+  "image": "https://yourdomain.com/images/iron_longsword.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 0,
+      "dmg": 15,
+      "armor": 0,
+      "agility": 2
+    }
+  ]
+}

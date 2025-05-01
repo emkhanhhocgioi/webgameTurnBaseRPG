@@ -1,0 +1,14 @@
+{
+  "name": "Golden Battle Axe",
+  "description": "A heavy battle axe adorned with gold.",
+  "image": "https://yourdomain.com/images/golden_battle_axe.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 0,
+      "dmg": 25,
+      "armor": 5,
+      "agility": -2
+    }
+  ]
+}

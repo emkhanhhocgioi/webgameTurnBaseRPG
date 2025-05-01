@@ -1,0 +1,14 @@
+{
+  "name": "Steel Dagger",
+  "description": "A lightweight dagger made of steel.",
+  "image": "https://yourdomain.com/images/steel_dagger.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 0,
+      "dmg": 10,
+      "armor": 0,
+      "agility": 5
+    }
+  ]
+}

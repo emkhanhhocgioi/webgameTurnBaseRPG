@@ -1,20 +1,23 @@
 const { Contract } = require('ethers');
 const hre = require('hardhat');
 const { ethers } = hre;
-
+const {itemTransferFromTo} = require('./CharacterController')
 const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
 
 let contract = null; // 👈 Biến dùng chung toàn cục trong module
-
+let itemcontract = null
 // Hàm khởi tạo contract (gọi 1 lần từ server)
 const initContract = async () => {
     const contractArtifact = await hre.artifacts.readArtifact("BidiTOKEN");
+    const ItemArtifact = await hre.artifacts.readArtifact("DDTi");
     const signer = await provider.getSigner(); 
     contract = new ethers.Contract(
-        "0x73678f56420df54547f9C07b91c0E2B577CcbE46", // Địa chỉ contract
+        "0x42D7881c94781A284f28B31120FB7eEC217d1DfA", // Địa chỉ contract
         contractArtifact.abi,
         signer
     );
+   
+
     console.log("✅ Contract đã khởi tạo thành công");
 };
 
@@ -22,19 +25,93 @@ const initContract = async () => {
 const getTokenBalanceOfUser = async (req, res) => {
     const address = req.body.address;
 
-    if (!address ) {
+    if (!address) {
         return res.status(400).json({ error: "Địa chỉ không hợp lệ hoặc thiếu!" });
     }
 
     try {
-      
         console.log("contractaddress", contract);
+   
         const balance = await contract.balanceOf(address);
-        const formatted = ethers.formatUnits(balance, 18);
+        console.log("balance"+ balance)
+        const formatted = ethers.formatUnits(balance, 18); // Use 0 decimals to avoid scaling down
+        console.log(formatted)
         return res.json({ address, balance: formatted });
     } catch (err) {
         console.error("Lỗi khi lấy balance:", err);
         return res.status(500).json({ error: "Lỗi khi lấy số dư" });
+    }
+};
+
+
+
+
+const ListItem = async (req, res) => {
+    const { item } = req.body;
+
+    if (!item || !item.name || !item.description || !item.price) {
+        return res.status(400).json({ error: "Thông tin item không hợp lệ hoặc thiếu!" });
+    }
+
+    const {seller, name,weaponid, description, price } = item;
+
+    try {
+        if (!contract) {
+            console.log("⚠ Contract chưa được khởi tạo");
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+
+        const tx = await contract.listProduct(seller,name,weaponid, description, ethers.parseUnits(price.toString(), 18));
+        await tx.wait();
+        
+
+        console.log(`✅ Đã niêm yết sản phẩm: ${name} với giá ${price}`);
+        res.status(200).json({ success: true, txHash: tx.hash });
+    } catch (error) {
+        console.error("❌ Lỗi khi niêm yết sản phẩm:", error);
+        res.status(500).json({
+            error: "Lỗi khi niêm yết sản phẩm",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
+
+const BuyProduct = async (req, res) => {
+    const { data } = req.body;
+    console.log(data)
+    const productid = data.productid
+    const buyer = data.buyer
+    const seller = data.seller;
+    const itemId = data.itemId;
+    
+    if (!productid || !buyer) {
+        return res.status(400).json({ error: "Thông tin không hợp lệ hoặc thiếu!" });
+    }
+
+    try {
+        if (!contract) {
+            console.log("⚠ Contract chưa được khởi tạo");
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+        
+        const tx = await contract.BuyProduct(productid, buyer);
+        await tx.wait();
+        if(tx){
+            itemTransferFromTo(seller,buyer,itemId)
+        }
+      
+     
+        console.log(`✅ Sản phẩm với ID ${productid} đã được mua bởi ${buyer}`);
+        console.log(tx)
+        res.status(200).json({ success: true, txHash: tx.hash });
+    } catch (error) {
+        console.error("❌ Lỗi khi mua sản phẩm:", error);
+        res.status(500).json({
+            error: "Lỗi khi mua sản phẩm",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
     }
 };
 
@@ -61,6 +138,7 @@ const droptokentoplayer = async (address, dlevel) => {
         throw new Error("Contract chưa được khởi tạo");
     }
 
+   
     // Tạo xác suất dựa trên level
     const getDropChance = (level) => {
         if (level >= 6) return 100;
@@ -92,23 +170,175 @@ const droptokentoplayer = async (address, dlevel) => {
     }
 };
 
+const DropitemToUser = async (req, res) => {
+    const { address } = req.body;
+
+    try {
+        // Kiểm tra nếu địa chỉ không hợp lệ
+        if (!address ) {
+            return res.status(400).json({ error: "Địa chỉ không hợp lệ" });
+        }
+
+        // Truyền các tham số đúng khi gọi hàm addItemToAddress
+        const id = 1; 
+        const amount = ethers.parseUnits("1", 18); 
+        const data = "0x"; 
+
+        // Gọi hàm addItemToAddress với các tham số hợp lệ
+        const tx = await itemcontract.addItemToAddress(address, id, amount, data);
+        await tx.wait();
+
+        console.log(`✅ Đã thêm item với ID ${id} và số lượng ${amount} đến địa chỉ ${address}`);
+        res.status(200).json({ success: true, txHash: tx.hash });
+    } catch (error) {
+        console.error("Lỗi khi thêm item:", error);
+        res.status(500).json({ error: "Lỗi khi thêm item", details: error.toString() });
+    }
+};
+const testgetmetadata = async (req, res) => {
+    const id = "0" ;
+
+    try {
+        // Kiểm tra nếu id không hợp lệ
+        if (!id) {
+            return res.status(400).json({ error: "ID không hợp lệ hoặc thiếu!" });
+        }
+
+        // Gọi hàm getIdMetadata để lấy metadata của item
+        const metadata = await itemcontract.getIdMetadata(id);
+
+        console.log(`✅ Metadata của ID ${id}:`, metadata);
+
+        // Trả về metadata dưới dạng JSON
+        res.status(200).json({ success: true, metadata });
+    } catch (error) {
+        console.error("❌ Lỗi khi lấy metadata:", error);
+
+        // Trả về lỗi nếu có vấn đề xảy ra
+        res.status(500).json({
+            error: "Lỗi khi lấy metadata",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
+
+
+const getalluseritem = async (req, res) => {
+    try {
+        if (!contract) {
+            console.log('⚠ Contract chưa được khởi tạo');
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+
+        const txdata = await contract.getListedProducts();
+
+        if (txdata) {
+            // Convert BigInt to string
+            const converted = txdata.map(item =>
+                item.map(val => typeof val === 'bigint' ? val.toString() : val)
+            );
+
+            console.log(converted);
+            res.status(200).json({ success: true, data: converted });
+        } else {
+            res.status(400).json({ success: false, message: "Không có sản phẩm nào được niêm yết" });
+        }
+    } catch (error) {
+        console.error("❌ Lỗi khi lấy item:", error);
+        res.status(500).json({
+            error: "Lỗi khi lấy item",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
+
+const getExchanges = async (req,res) =>{
+    try {
+        if (!contract) {
+            console.log('⚠ Contract chưa được khởi tạo');
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+
+        const txdata = await contract.getExchangeOffers();
+
+        if (txdata) {
+            // Convert BigInt to string
+            const converted = txdata.map(item =>
+                item.map(val => typeof val === 'bigint' ? val.toString() : val)
+            );
+
+            console.log(converted);
+            res.status(200).json({ success: true, data: converted });
+        } else {
+            res.status(400).json({ success: false, message: "Không có sản phẩm nào được niêm yết" });
+        }
+    } catch (error) {
+        console.error("❌ Lỗi khi lấy contract:", error);
+        res.status(500).json({
+            error: "Lỗi khi lấy contract",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+}
+ 
+const ApproveExchange = async (req, res) => {
+    const { data } = req.body;
+    const id = 1;
+    const account = "0x6Bc682dD6092C40518275AE7BC8430770513B6cd";
+
+    try {
+        if (!contract) {
+            console.log('⚠ Contract chưa được khởi tạo');
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+
+        const tx = await contract.ApprovedOffer(id, account);
+        await tx.wait();
+
+        console.log(`✅ Đã phê duyệt giao dịch với Offer ID ${id} cho tài khoản ${account}`);
+        res.status(200).json({ success: true, txHash: tx.hash });
+    } catch (error) {
+        console.error("❌ Lỗi khi phê duyệt giao dịch:", error);
+        console.log(error)
+    }
+};
+
+
+
+
+
 
 
 const ExchangeTokken = async (req , res) => {
-    const{amount,toAddress} = req.body; // Lấy address và amount từ request body
+ const user = "0xdd51C61689dbfbAAE324430367961B27E419da90"
+ const amount = 1000;
 
-    console.log("amount",amount);
-    console.log("toAddress",toAddress);
-    
-    try {
-      const tx = await contract.sendTokenToUser(toAddress, ethers.parseUnits(amount.toString(), 18));
-      await tx.wait();
-      res.status(200).json({ success: true, txHash: tx.hash });
-      console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${toAddress}`);
-    } catch (error) {
-        
+try {
+    if (!contract) {
+        console.log("⚠ Contract chưa được khởi tạo");
+        return res.status(500).json({ error: "Contract chưa được khởi tạo" });
     }
+
+    const tx = await contract.dropTokenToUser(user, amount);
+    await tx.wait();
+
+    console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${user}`);
+    res.status(200).json({ success: true, txHash: tx.hash });
+} catch (error) {
+    console.error("❌ Lỗi khi gửi token:", error);
+    res.status(500).json({
+        error: "Lỗi khi gửi token",
+        details: error.message || error.toString(),
+        code: error.code || "UNKNOWN_ERROR"
+    });
 }
+}
+
+
+
 
 // Hàm hỗ trợ random phần thưởng
 function getRandomInt(min, max) {
@@ -130,5 +360,11 @@ module.exports = {
     initContract,
     getTokenBalanceOfUser,
     droptokentoplayer,
-    ExchangeTokken
+    ExchangeTokken,
+    DropitemToUser,getalluseritem,
+    testgetmetadata,ListItem,
+    BuyProduct,
+    getExchanges,
+    ApproveExchange
+
 };

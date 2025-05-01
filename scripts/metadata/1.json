@@ -1,0 +1,15 @@
+{
+  "name": "Divine Shield",
+  "description": "A shield blessed by the gods.",
+  "image": "https://yourdomain.com/images/shield.png",
+  "attributes": [
+    {
+      "trait_type": "Defense",
+      "value": 150
+    },
+    {
+      "trait_type": "Durability",
+      "value": 300
+    }
+  ]
+}

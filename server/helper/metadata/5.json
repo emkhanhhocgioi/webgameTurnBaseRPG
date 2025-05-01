@@ -1,0 +1,14 @@
+{
+  "name": "Shadow Bow",
+  "description": "A bow crafted from the shadows, silent and deadly.",
+  "image": "https://yourdomain.com/images/shadow_bow.png",
+  "attributes": [
+    {
+      "hp": 0,
+      "mp": 0,
+      "dmg": 18,
+      "armor": 0,
+      "agility": 7
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Healing Potion",
+  "description": "Restores health over time.",
+  "image": "https://yourdomain.com/images/potion.png",
+  "attributes": [
+    {
+      "trait_type": "Heal",
+      "value": 50
+    },
+    {
+      "trait_type": "Duration",
+      "value": "5 minutes"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Legendary Sword",
+  "description": "A powerful sword forged by ancient heroes.",
+  "image": "https://yourdomain.com/images/sword.png",
+  "attributes": [
+    {
+      "trait_type": "Attack",
+      "value": 100
+    },
+    {
+      "trait_type": "Durability",
+      "value": 250
+    }
+  ]
+}
