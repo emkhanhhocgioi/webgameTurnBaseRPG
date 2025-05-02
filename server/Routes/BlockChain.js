@@ -11,7 +11,8 @@ const {droptokentoplayer,
     BuyProduct,
     ListItem,
     getExchanges,
-    ApproveExchange
+    ApproveExchange,
+    getOwnerEthers
 }  = require('../controllers/BDChainController');
 const { ethers } = require('hardhat'); // Import ethers từ hardhat  
 
@@ -24,6 +25,6 @@ bcrouter.post('/listitem',ListItem)
 bcrouter.post('/buylisteditem',BuyProduct)
 bcrouter.get('/get/token/offer',getExchanges)
 bcrouter.post('/approve/token/offer',ApproveExchange)
-bcrouter.post('/testbzh',ExchangeTokken)
+bcrouter.get('/testbzh',getOwnerEthers)
 module.exports = bcrouter;
 

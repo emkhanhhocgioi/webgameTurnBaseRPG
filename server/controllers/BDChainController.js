@@ -12,7 +12,7 @@ const initContract = async () => {
     const ItemArtifact = await hre.artifacts.readArtifact("DDTi");
     const signer = await provider.getSigner(); 
     contract = new ethers.Contract(
-        "0x42D7881c94781A284f28B31120FB7eEC217d1DfA", // Địa chỉ contract
+        "0x25a2CB25D863801E11f802e164744C89b3542041", // Địa chỉ contract
         contractArtifact.abi,
         signer
     );
@@ -34,7 +34,7 @@ const getTokenBalanceOfUser = async (req, res) => {
    
         const balance = await contract.balanceOf(address);
         console.log("balance"+ balance)
-        const formatted = ethers.formatUnits(balance, 18); // Use 0 decimals to avoid scaling down
+        const formatted = ethers.formatUnits(balance, 0); // Use 0 decimals to avoid scaling down
         console.log(formatted)
         return res.json({ address, balance: formatted });
     } catch (err) {
@@ -61,7 +61,7 @@ const ListItem = async (req, res) => {
             return res.status(500).json({ error: "Contract chưa được khởi tạo" });
         }
 
-        const tx = await contract.listProduct(seller,name,weaponid, description, ethers.parseUnits(price.toString(), 18));
+        const tx = await contract.listProduct(seller,name,weaponid, description, price.toString());
         await tx.wait();
         
 
@@ -285,20 +285,18 @@ const getExchanges = async (req,res) =>{
 }
  
 const ApproveExchange = async (req, res) => {
-    const { data } = req.body;
-    const id = 1;
-    const account = "0x6Bc682dD6092C40518275AE7BC8430770513B6cd";
-
+    const { id } = req.body;
+    console.log(id)
     try {
         if (!contract) {
             console.log('⚠ Contract chưa được khởi tạo');
             return res.status(500).json({ error: "Contract chưa được khởi tạo" });
         }
 
-        const tx = await contract.ApprovedOffer(id, account);
+        const tx = await contract.ApprovedOffer(id.toString());
         await tx.wait();
 
-        console.log(`✅ Đã phê duyệt giao dịch với Offer ID ${id} cho tài khoản ${account}`);
+     
         res.status(200).json({ success: true, txHash: tx.hash });
     } catch (error) {
         console.error("❌ Lỗi khi phê duyệt giao dịch:", error);
@@ -338,6 +336,28 @@ try {
 }
 
 
+const getOwnerEthers = async (_, res) => {
+    try {
+        if (!contract) {
+            console.log("⚠ Contract chưa được khởi tạo");
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+        let amount = 10;
+        const tx = await contract.getContractEthBalance(amount);
+        const formattedTx = tx.toString(); // Serialize BigInt to string
+        
+        res.status(200).json({ success: true, data: formattedTx });
+    } catch (error) {
+        console.error("❌ Lỗi khi lấy số dư ETH của chủ sở hữu:", error);
+        res.status(500).json({
+            error: "Lỗi khi lấy số dư ETH của chủ sở hữu",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
+
+
 
 
 // Hàm hỗ trợ random phần thưởng
@@ -365,6 +385,7 @@ module.exports = {
     testgetmetadata,ListItem,
     BuyProduct,
     getExchanges,
-    ApproveExchange
+    ApproveExchange,
+    getOwnerEthers
 
 };
