@@ -6,18 +6,18 @@ const provider = new ethers.JsonRpcProvider('http://127.0.0.1:7545');
 
 let contract = null; // 👈 Biến dùng chung toàn cục trong module
 let itemcontract = null
+
 // Hàm khởi tạo contract (gọi 1 lần từ server)
 const initContract = async () => {
     const contractArtifact = await hre.artifacts.readArtifact("BidiTOKEN");
-    const ItemArtifact = await hre.artifacts.readArtifact("DDTi");
+    
     const signer = await provider.getSigner(); 
     contract = new ethers.Contract(
-        "0x25a2CB25D863801E11f802e164744C89b3542041", // Địa chỉ contract
+        "0x131FC01D962Fee7675586cbffdb8Afb2a589A291", // Địa chỉ contract
         contractArtifact.abi,
         signer
     );
    
-
     console.log("✅ Contract đã khởi tạo thành công");
 };
 
@@ -33,18 +33,16 @@ const getTokenBalanceOfUser = async (req, res) => {
         console.log("contractaddress", contract);
    
         const balance = await contract.balanceOf(address);
-        console.log("balance"+ balance)
-        const formatted = ethers.formatUnits(balance, 0); // Use 0 decimals to avoid scaling down
+        console.log("balance: " + balance)
+        // Format balance with 18 decimals
+        const formatted = ethers.formatUnits(balance, 18);
         console.log(formatted)
-        return res.json({ address, balance: formatted });
+        return res.json({ address, balance: formatted + " BIDI" });
     } catch (err) {
         console.error("Lỗi khi lấy balance:", err);
         return res.status(500).json({ error: "Lỗi khi lấy số dư" });
     }
 };
-
-
-
 
 const ListItem = async (req, res) => {
     const { item } = req.body;
@@ -53,7 +51,7 @@ const ListItem = async (req, res) => {
         return res.status(400).json({ error: "Thông tin item không hợp lệ hoặc thiếu!" });
     }
 
-    const {seller, name,weaponid, description, price } = item;
+    const {seller, name, weaponid, description, price } = item;
 
     try {
         if (!contract) {
@@ -61,11 +59,11 @@ const ListItem = async (req, res) => {
             return res.status(500).json({ error: "Contract chưa được khởi tạo" });
         }
 
-        const tx = await contract.listProduct(seller,name,weaponid, description, price.toString());
+        // No need to parse price with decimals
+        const tx = await contract.listProduct(seller, name, description, weaponid, parseInt(price));
         await tx.wait();
         
-
-        console.log(`✅ Đã niêm yết sản phẩm: ${name} với giá ${price}`);
+        console.log(`✅ Đã niêm yết sản phẩm: ${name} với giá ${price} BIDI`);
         res.status(200).json({ success: true, txHash: tx.hash });
     } catch (error) {
         console.error("❌ Lỗi khi niêm yết sản phẩm:", error);
@@ -98,10 +96,9 @@ const BuyProduct = async (req, res) => {
         const tx = await contract.BuyProduct(productid, buyer);
         await tx.wait();
         if(tx){
-            itemTransferFromTo(seller,buyer,itemId)
+           await  itemTransferFromTo(seller, buyer, itemId)
         }
       
-     
         console.log(`✅ Sản phẩm với ID ${productid} đã được mua bởi ${buyer}`);
         console.log(tx)
         res.status(200).json({ success: true, txHash: tx.hash });
@@ -114,12 +111,6 @@ const BuyProduct = async (req, res) => {
         });
     }
 };
-
-
-
-
-
-
 
 const droptokentoplayer = async (address, dlevel) => {
     console.log("address", address);
@@ -138,7 +129,6 @@ const droptokentoplayer = async (address, dlevel) => {
         throw new Error("Contract chưa được khởi tạo");
     }
 
-   
     // Tạo xác suất dựa trên level
     const getDropChance = (level) => {
         if (level >= 6) return 100;
@@ -147,7 +137,8 @@ const droptokentoplayer = async (address, dlevel) => {
         return Math.min(baseChance + bonusPerLevel * level, 100);
     };
 
-    const chance = getDropChance(dlevel);
+    // const chance = getDropChance(dlevel);
+    const chance = 100;
     const random = Math.random() * 100;
 
     console.log(`🎯 Drop chance: ${chance}% | Random rolled: ${random.toFixed(2)}`);
@@ -157,12 +148,15 @@ const droptokentoplayer = async (address, dlevel) => {
         return { success: false, message: "Không nhận được token lần này" };
     }
 
-    // Nếu random thành công -> gửi token
-    const amount = getRewardbasedOnLevel(dlevel);
     try {
-        const tx = await contract.dropTokenToUser(address, ethers.parseUnits(amount.toString(), 18));
+        const rawAmount = getRewardbasedOnLevel(dlevel);
+        // No need to parse with decimals - tokens are whole units now
+        const amount = Math.floor(rawAmount);
+        
+        const tx = await contract.dropTokenToUser(address, amount);
         await tx.wait();
-        console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${address}`);
+        
+        console.log(`✅ Đã gửi ${amount} BIDI đến địa chỉ ${address}`);
         return { success: true, txHash: tx.hash, amount };
     } catch (err) {
         console.error("❌ Lỗi khi gửi token:", err);
@@ -181,7 +175,8 @@ const DropitemToUser = async (req, res) => {
 
         // Truyền các tham số đúng khi gọi hàm addItemToAddress
         const id = 1; 
-        const amount = ethers.parseUnits("1", 18); 
+        // No need for 18 decimals anymore
+        const amount = 1;
         const data = "0x"; 
 
         // Gọi hàm addItemToAddress với các tham số hợp lệ
@@ -195,6 +190,7 @@ const DropitemToUser = async (req, res) => {
         res.status(500).json({ error: "Lỗi khi thêm item", details: error.toString() });
     }
 };
+
 const testgetmetadata = async (req, res) => {
     const id = "0" ;
 
@@ -223,7 +219,6 @@ const testgetmetadata = async (req, res) => {
     }
 };
 
-
 const getalluseritem = async (req, res) => {
     try {
         if (!contract) {
@@ -235,9 +230,12 @@ const getalluseritem = async (req, res) => {
 
         if (txdata) {
             // Convert BigInt to string
-            const converted = txdata.map(item =>
-                item.map(val => typeof val === 'bigint' ? val.toString() : val)
-            );
+            const converted = txdata.map(item => {
+                if (Array.isArray(item)) {
+                    return item.map(val => typeof val === 'bigint' ? val.toString() : val);
+                }
+                return item;
+            });
 
             console.log(converted);
             res.status(200).json({ success: true, data: converted });
@@ -254,7 +252,7 @@ const getalluseritem = async (req, res) => {
     }
 };
 
-const getExchanges = async (req,res) =>{
+const getExchanges = async (req, res) => {
     try {
         if (!contract) {
             console.log('⚠ Contract chưa được khởi tạo');
@@ -265,14 +263,17 @@ const getExchanges = async (req,res) =>{
 
         if (txdata) {
             // Convert BigInt to string
-            const converted = txdata.map(item =>
-                item.map(val => typeof val === 'bigint' ? val.toString() : val)
-            );
+            const converted = txdata.map(item => {
+                if (Array.isArray(item)) {
+                    return item.map(val => typeof val === 'bigint' ? val.toString() : val);
+                }
+                return item;
+            });
 
             console.log(converted);
             res.status(200).json({ success: true, data: converted });
         } else {
-            res.status(400).json({ success: false, message: "Không có sản phẩm nào được niêm yết" });
+            res.status(400).json({ success: false, message: "Không có giao dịch nào được niêm yết" });
         }
     } catch (error) {
         console.error("❌ Lỗi khi lấy contract:", error);
@@ -283,7 +284,30 @@ const getExchanges = async (req,res) =>{
         });
     }
 }
- 
+const DeclinedExchange = async (req, res) => {
+    const { id } = req.body;
+    console.log(id);
+    try {
+        if (!contract) {
+            console.log('⚠ Contract chưa được khởi tạo');
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+
+        const tx = await contract.DeclinedOffer(id.toString());
+        await tx.wait();
+
+        console.log(`✅ Giao dịch với ID ${id} đã bị từ chối`);
+        res.status(200).json({ success: true, txHash: tx.hash });
+    } catch (error) {
+        console.error("❌ Lỗi khi từ chối giao dịch:", error);
+        console.log(error);
+        res.status(500).json({
+            error: "Lỗi khi từ chối giao dịch",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
 const ApproveExchange = async (req, res) => {
     const { id } = req.body;
     console.log(id)
@@ -296,45 +320,82 @@ const ApproveExchange = async (req, res) => {
         const tx = await contract.ApprovedOffer(id.toString());
         await tx.wait();
 
-     
         res.status(200).json({ success: true, txHash: tx.hash });
     } catch (error) {
         console.error("❌ Lỗi khi phê duyệt giao dịch:", error);
         console.log(error)
+        res.status(500).json({
+            error: "Lỗi khi phê duyệt giao dịch",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
     }
 };
 
+const ExchangeTokken = async (req, res) => {
+    const user = "0xdd51C61689dbfbAAE324430367961B27E419da90";
+    // Adjust amount - 1 ETH = 100 BIDI tokens (based on price in contract)
+    const amount = 100;
 
+    try {
+        if (!contract) {
+            console.log("⚠ Contract chưa được khởi tạo");
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
 
+        const tx = await contract.dropTokenToUser(user, amount);
+        await tx.wait();
 
-
-
-
-const ExchangeTokken = async (req , res) => {
- const user = "0xdd51C61689dbfbAAE324430367961B27E419da90"
- const amount = 1000;
-
-try {
-    if (!contract) {
-        console.log("⚠ Contract chưa được khởi tạo");
-        return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        console.log(`✅ Đã gửi ${amount} BIDI token đến địa chỉ ${user}`);
+        res.status(200).json({ 
+            success: true, 
+            txHash: tx.hash,
+            message: `1 ETH = 100 BIDI - Đã gửi ${amount} BIDI`
+        });
+    } catch (error) {
+        console.error("❌ Lỗi khi gửi token:", error);
+        res.status(500).json({
+            error: "Lỗi khi gửi token",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
     }
-
-    const tx = await contract.dropTokenToUser(user, amount);
-    await tx.wait();
-
-    console.log(`✅ Đã gửi ${amount} token đến địa chỉ ${user}`);
-    res.status(200).json({ success: true, txHash: tx.hash });
-} catch (error) {
-    console.error("❌ Lỗi khi gửi token:", error);
-    res.status(500).json({
-        error: "Lỗi khi gửi token",
-        details: error.message || error.toString(),
-        code: error.code || "UNKNOWN_ERROR"
-    });
-}
 }
 
+const createExchangeOffer = async (req, res) => {
+    const { amount, from } = req.body;
+    
+    if (!amount || !from) {
+        return res.status(400).json({ error: "Thông tin không hợp lệ hoặc thiếu!" });
+    }
+    
+    try {
+        if (!contract) {
+            console.log("⚠ Contract chưa được khởi tạo");
+            return res.status(500).json({ error: "Contract chưa được khởi tạo" });
+        }
+        
+        // Calculate equivalent ETH value
+        const etherValue = (amount * 0.00001).toFixed(6); // based on withdrawn_price
+        
+        const tx = await contract.CreateExchangeOffer(amount, from);
+        await tx.wait();
+        
+        console.log(`✅ Đã tạo lệnh đổi ${amount} BIDI (giá trị: ${etherValue} ETH)`);
+        res.status(200).json({ 
+            success: true, 
+            txHash: tx.hash,
+            message: `Đã tạo lệnh đổi ${amount} BIDI (${etherValue} ETH)`
+        });
+    } catch (error) {
+        console.error("❌ Lỗi khi tạo lệnh đổi token:", error);
+        res.status(500).json({
+            error: "Lỗi khi tạo lệnh đổi token",
+            details: error.message || error.toString(),
+            code: error.code || "UNKNOWN_ERROR"
+        });
+    }
+};
 
 const getOwnerEthers = async (_, res) => {
     try {
@@ -344,9 +405,25 @@ const getOwnerEthers = async (_, res) => {
         }
         let amount = 10;
         const tx = await contract.getContractEthBalance(amount);
-        const formattedTx = tx.toString(); // Serialize BigInt to string
         
-        res.status(200).json({ success: true, data: formattedTx });
+        // Display in user-friendly format
+        const totalCost = tx[0].toString();
+        const contractBalance = tx[1].toString();
+        
+        // Convert Wei to ETH for readability
+        const totalCostEth = ethers.formatEther(totalCost);
+        const contractBalanceEth = ethers.formatEther(contractBalance);
+        
+        // Calculate token equivalence (1 ETH = 100 BIDI)
+        const bidiEquivalent = Math.floor(parseFloat(contractBalanceEth) * 100);
+        console.log(contractBalanceEth)
+        res.status(200).json({ 
+            success: true, 
+            totalCost: `${totalCostEth} ETH`,
+            contractBalance: `${contractBalanceEth} ETH`,
+            tokenEquivalent: `${bidiEquivalent} BIDI`,
+            message: `1 ETH = 100 BIDI tokens`
+        });
     } catch (error) {
         console.error("❌ Lỗi khi lấy số dư ETH của chủ sở hữu:", error);
         res.status(500).json({
@@ -357,21 +434,19 @@ const getOwnerEthers = async (_, res) => {
     }
 };
 
-
-
-
 // Hàm hỗ trợ random phần thưởng
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function getRewardbasedOnLevel(dlevel) {
+    // Updated rewards to whole numbers (no decimals)
     const baseRewards = {
-        1: getRandomInt(1, 20) / 10,
-        2: getRandomInt(4, 40) / 10,
-        3: getRandomInt(10, 50) / 10,
-        4: getRandomInt(5, 20),
-        5: getRandomInt(10, 30)
+        1: getRandomInt(10, 200),
+        2: getRandomInt(40, 400),
+        3: getRandomInt(100, 500),
+        4: getRandomInt(500, 2000),
+        5: getRandomInt(1000, 3000)
     };
     return baseRewards[dlevel] || 0;
 }
@@ -381,11 +456,14 @@ module.exports = {
     getTokenBalanceOfUser,
     droptokentoplayer,
     ExchangeTokken,
-    DropitemToUser,getalluseritem,
-    testgetmetadata,ListItem,
+    DropitemToUser,
+    getalluseritem,
+    testgetmetadata,
+    ListItem,
     BuyProduct,
     getExchanges,
     ApproveExchange,
-    getOwnerEthers
-
+    getOwnerEthers,
+    createExchangeOffer,
+    DeclinedExchange
 };

@@ -90,7 +90,7 @@ const getUserProfile = async (req, res) => {
         const token = jwt.sign(
             { id:user._id , username: user.username, Wallet_Address: user.Wallet_Address },
             JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '72h' }
         );
 
         // Ẩn mật khẩu khỏi response

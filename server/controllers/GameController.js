@@ -3,6 +3,7 @@ const mobdata = require('../models/mobdata'); // Import dữ liệu mob từ fil
 const getMobEvent = require('../models/MobEvent'); // Import dữ liệu mob từ file mobdata.js
 const {droptokentoplayer} = require('../controllers/BDChainController'); // Import hàm từ BDChainController.js
 const items = require('../models/Item.js'); // Import dữ liệu item từ file gnmetadata.js
+const client = require('../MongoDbConnection.js'); // Import client MongoDB
 // Hàm lấy giá trị ngẫu nhiên trong khoảng min và max
 const Character = require('../models/Character'); // Import dữ liệu mob từ file mobdata.js
 const {addItemtoServedAndChacracter} = require(`../controllers/CharacterController`)
@@ -44,6 +45,7 @@ const getmobdataSpawn = (dlevel, randomIndex) => {
             mobType: selectedMob.type,
             mobName: selectedMob.name,
             mobLevel: selectedMob.level,
+            mobXp: selectedMob.xp,
             dropitem:[{
                 id  :selectedMob.dropitem.id,
                 droprate : selectedMob.dropitem.droprate,
@@ -73,7 +75,7 @@ const spawnRedBox = async (req, res) => {
     try {
         const GRID_SIZE = 12;
         const totalGrid = GRID_SIZE * GRID_SIZE;
-        const redBoxCount = Math.min(await RandomMobBaseOnDungeonLevel(dlevel), 3); // Ensure max 3 red boxes
+        const redBoxCount = Math.min(await RandomMobBaseOnDungeonLevel(dlevel)); // Ensure max 3 red boxes
 
         const randomIndexes = new Set();
         while (randomIndexes.size < redBoxCount) {
@@ -84,7 +86,7 @@ const spawnRedBox = async (req, res) => {
 
         const resData = getmobdataSpawn(dlevel, uniqueRandomIndexes);
         resData.forEach(mob => {
-            console.log("Drop item for mob:", JSON.stringify(mob, null, 2)); // Log detailed mob data
+            // console.log("Drop item for mob:", JSON.stringify(mob, null, 2)); // Log detailed mob data
         });
         if (!resData) {
             console.log("⚠ Không tìm thấy mob nào cho dlevel:", dlevel);
@@ -122,12 +124,13 @@ const MobRandomTurn = async (req, res) => {
         console.log("⚠ Không có GameState trong request body");
         return res.status(400).json({ success: false, message: "Missing GameState" });
     }
-
+    
     const mobdata = gamestate.mobstat;
+    console.log("MobData:", mobdata);
     const playerdata = gamestate.playerStat;
     console.log(playerdata)
     const userdata = gamestate.Userdata;
-    console.log("userdata", userdata);
+    console.log("userdata:", userdata);
 
     try {
         const mobHPPercent = (mobdata.hp / mobdata.maxHp) * 100;
@@ -155,11 +158,17 @@ const MobRandomTurn = async (req, res) => {
             const itemjson = await getRandomDropItem(mobdata)
             const testItemimport = await addItemtoServedAndChacracter(itemjson,playerdata)
             console.log(testItemimport)
-            const resFinal  ={
-                actionCode: actionCode,
-                item:itemjson,
-                DroptokenJson: await droptokentoplayer(userdata.walletAddress,mobdata.mobLevel)
-            } 
+            const dropToken = await droptokentoplayer(userdata.walletAddress, mobdata.mobLevel);
+
+            // Ví dụ dropToken có trường amount là BigInt:
+            dropToken.amount = dropToken.amount.toString();
+            await characterUpdateLevel(userdata._id, mobdata.mobXp);
+            const resFinal  = ({
+            actionCode: actionCode,
+            item: itemjson,
+            DroptokenJson: dropToken
+            });
+            
             console.log("🤖 Mob :", resFinal.DroptokenJson);
             console.log("🤖 Mob :", resFinal.item);
             res.status(200).json({ action: actionCode, resFinal });
@@ -181,51 +190,43 @@ const MobRandomTurn = async (req, res) => {
     }
 };
 
-
-const playerExp = async (req, res) => {
-    const { UserID, exp } = req.body;
-    console.log("UserID", UserID);
-    console.log("exp", exp);
-
-    if (!UserID || !exp) {
-        console.log("⚠ Không có UserID hoặc exp trong request body");
-        return res.status(400).json({ success: false, message: "Missing UserID or exp" });
+const characterUpdateLevel = async (UserID, newExp) => {
+    console.log("Updating character level for UserID:", UserID, "with newExp:", newExp);
+    if (!UserID || !newExp) {
+        throw new Error("UserID and newExp are required");
     }
-
     try {
         await client.connect();
         const db = client.db("DungeonRunnerGame");
-        const doc = db.collection("Character");
+        const characterCollection = db.collection("Character");
 
-        // Tìm kiếm người dùng theo UserID
-        const existingCharacter = await doc.findOne({ UserID: UserID });
-        if (!existingCharacter) {
-            return res.status(404).json({ success: false, message: "User not found" });
+        // Find the character by UserID
+        const character = await characterCollection.findOne({ UserID: UserID });
+        if (!character) {
+            throw new Error("Character not found");
         }
 
-        // Tính toán tổng exp mới
-        const newExp = existingCharacter.exp + exp;
-
-        // Cập nhật exp cho người dùng
-        const updatedCharacter = await doc.updateOne(
+        // Update exp and level
+        const newTotalExp = character.exp + newExp;
+        const updatedCharacter = await characterCollection.updateOne(
             { UserID: UserID },
-            { $set: { exp: newExp, level: calculateLevel(newExp) } }
+            { $set: { exp: newTotalExp, level: calculateLevel(newTotalExp) } }
         );
 
         if (updatedCharacter.modifiedCount === 0) {
-            return res.status(500).json({ success: false, message: "Failed to update user experience" });
+            throw new Error("Failed to update character experience");
         }
 
-        res.status(200).json({ success: true, message: "Experience updated successfully" });
+        console.log("Character experience updated successfully");
+        return { message: "Experience updated successfully" };
     } catch (error) {
-        console.log("❌ Lỗi khi cập nhật exp:", error);
-        return res.status(500).json({ success: false, message: "Lỗi server" });
+        console.error("Error updating character experience:", error);
+        throw new Error("Failed to update character experience");
     }
 };
-
 // Function to calculate level based on total experience
 const calculateLevel = (totalExp) => {
-    let level = 1;  // Starting at level 1
+    let level = 1;  
     let expThreshold = 0;
 
     // Loop through the level thresholds to find the correct level
@@ -252,7 +253,7 @@ const playerlevelModifer = (level) => {
     } else if (level > 40 && level <= 50) {
         return 2400;
     } else {
-        return 0; // Default modifier if level is out of range
+        return 0; 
     }
 }
 
@@ -263,6 +264,6 @@ module.exports = {
     spawnRedBox,
     getRandomValue,
     MobRandomTurn,
-    playerExp
+
 
 };

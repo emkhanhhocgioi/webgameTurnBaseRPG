@@ -8,6 +8,7 @@ const items = [
         name: "Wooden Practice Sword",
         description: "A sword made out of wood.",
         image: "https://yourdomain.com/images/sword.png",
+        slot: "weapon",
         attributes: [
             {
                 hp: randomNumber(0, 5),
@@ -23,6 +24,7 @@ const items = [
         name: "Iron Longsword",
         description: "A sturdy longsword forged from iron.",
         image: "https://yourdomain.com/images/iron_longsword.png",
+        slot: "weapon",
         attributes: [
             {
                 hp: randomNumber(0, 10),
@@ -37,7 +39,8 @@ const items = [
         id: 2,
         name: "Steel Dagger",
         description: "A lightweight dagger made of steel.",
-        image: "https://yourdomain.com/images/steel_dagger.png",
+        image: "server/assest/weapon/dagger.jfif c",
+        slot: "weapon",
         attributes: [
             {
                 hp: randomNumber(0, 5),
@@ -68,6 +71,7 @@ const items = [
         name: "Crystal Staff",
         description: "A magical staff imbued with crystal energy.",
         image: "https://yourdomain.com/images/crystal_staff.png",
+        slot: "weapon",
         attributes: [
             {
                 hp: randomNumber(0, 5),
@@ -80,9 +84,10 @@ const items = [
     },
     {
         id: 5,
-        name: "Shadow Bow",
-        description: "A bow crafted from the shadows, silent and deadly.",
-        image: "https://yourdomain.com/images/shadow_bow.png",
+        name: "blood katana",
+        description: "A katana infused with the power of blood.",
+        image: "server/assest/weapon/blood_katana.png",
+        slot: "weapon",
         attributes: [
             {
                 hp: randomNumber(0, 5),

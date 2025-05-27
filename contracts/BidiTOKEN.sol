@@ -9,14 +9,26 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
     uint256 public blockReward;
     address public Isowner;
     uint256 public price = 0.00005 ether;
-    uint256 public withdrawn_price = 0.00001 ether;
+    uint256 public withdrawn_price = 0.00005 ether;
     uint256 public productCounter = 0;
     uint256 public ExchangeCounter = 0;
     
+    // Define decimals for token
+    uint8 private constant _decimals = 18;
+    
     constructor(uint256 reward) Ownable(msg.sender) ERC20("BidiTOKEN", "BIDI") {
-        _mint(msg.sender, 100000000);
+        _mint(msg.sender, 100000000 * 10**_decimals); // Adding decimals to initial supply
         Isowner = msg.sender;
         blockReward = reward;
+
+        luckyChests[1] = luckychest(1, 60);  // 0-59:   60% chance (most common)
+        luckyChests[2] = luckychest(2, 80);  // 60-79:  20% chance  
+        luckyChests[3] = luckychest(3, 90);  // 80-89:  10% chance
+        luckyChests[4] = luckychest(4, 97);  // 90-96:  7% chance
+        luckyChests[5] = luckychest(5, 100); // 97-99:  3% chance (rarest)
+
+        
+
     }
     
     struct listItem {
@@ -25,7 +37,7 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         string name;
         string weaponid;
         string description;
-        uint256 price; // đơn vị là token (BIDI)
+        uint256 price; // price in tokens (BIDI) with decimals
         bool isSold;
     }
 
@@ -36,12 +48,24 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         uint256 amount;
         bool isApproved;
     }
+
+
+    struct luckychest {
+        uint256 id;
+        uint256 rollchance;
+
+    }
     
+    mapping(uint256 => luckychest) public luckyChests;
+    event ChestRolled(address indexed user, uint256 chestId);
+    
+
     mapping(uint256 => listExchange) public listExchanges;
     mapping(uint256 => listItem) public listItems;
     
     event ProductListed(uint256 id, address seller, string name, uint256 itemprice);
     event ProductPurchased(uint256 id, address buyer);
+
     event WithdrawListed(uint256 id, address account, address from, uint256 amount);
     event ExchangeApproved(uint256 id, address account);
     event DebugLog(
@@ -59,19 +83,68 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         uint256 etherTransferred
     );
 
+     function getRandomRoll() public view returns (uint256) {
+        return uint256(
+            keccak256(
+                abi.encodePacked(block.timestamp, msg.sender, block.difficulty)
+            )
+        ) % 100;
+    }
+
+   function rollLuckyChest(address user, uint256 amount) public payable returns (uint256) {
+    require(user != address(0), "Invalid user address");
+    require(msg.value >= amount, "Insufficient ETH sent");
+
+    uint256 randomRoll = getRandomRoll(); // 0–99
+    uint256 selectedId = 0;
+
+    // Find lucky chest with suitable rollchance using cumulative ranges
+    for (uint256 i = 1; i <= 5; i++) {
+        if (randomRoll < luckyChests[i].rollchance) {
+            selectedId = luckyChests[i].id;
+            break;
+        }
+    }
+
+    // Transfer ETH to owner
+    payable(owner()).transfer(amount);
+
+    if (selectedId > 0) {
+        emit ChestRolled(user, selectedId);
+        return selectedId;
+    } else {
+        revert("Roll failed, try again!");
+    }
+}
+
+
+
+    
+
+    // Override decimals() function to return our custom decimals value
+    function decimals() public pure override returns (uint8) {
+        return _decimals;
+    }
+
     function burn(uint256 amount) public override onlyOwner {
         _burn(_msgSender(), amount);
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
+        _mint(to, amount * 10**_decimals); // Convert to token units with decimals
     }
 
     function dropTokenToUser(address user, uint256 amount) public onlyOwner {
-        _transfer(owner(), user, amount);
+        require(user != address(0), "Invalid user address");
+        require(amount > 0, "Amount must be greater than zero");
+        
+        uint256 amountWithDecimals = amount * 10**_decimals;
+        require(balanceOf(owner()) >= amountWithDecimals, "Insufficient balance to drop");
+      
+        _transfer(owner(), user, amountWithDecimals);
     }
     
-    //owner deposit to contract
+    // Owner deposit to contract
     function depositToContract(uint256 amount) external payable {
         require(msg.sender == owner(), "Only owner can deposit");
         bool ownerbalance = getOwnerEthBalance(amount);
@@ -83,24 +156,29 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         }
     }
 
-    function withDrawEthToOwner() public onlyOwner payable {
-        uint256 contractBalance = address(this).balance;
-        require(contractBalance > 0, "No Ether available in the contract");
+    function withdrawEthToOwner() public onlyOwner {
+     require(msg.sender == owner(), "Only owner can run this");
+  
+    uint256 contractBalance = address(this).balance;
+    require(contractBalance > 0, "No Ether available in the contract");
 
-        payable(owner()).transfer(contractBalance);
+    payable(owner()).transfer(contractBalance);
     }
+
     
-    //withdraw bdc tokken
+    // Withdraw BDC token
     function WithDrawFromWallet(address from, address to, uint256 amount) public {
-        require(balanceOf(from) >= amount, "Insufficient balance");
-        _transfer(from, to, amount); // Transfer without multiplying by decimals
+        uint256 amountWithDecimals = amount * 10**_decimals;
+        require(balanceOf(from) >= amountWithDecimals, "Insufficient balance");
+        _transfer(from, to, amountWithDecimals);
     }
 
     function buyMoreTokken(uint256 amount, address account) public payable {
         uint256 totalCost = amount * price;
         require(msg.value >= totalCost, "Not enough Ether");
 
-        _transfer(owner(), account, amount);
+        uint256 amountWithDecimals = amount * 10**_decimals;
+        _transfer(owner(), account, amountWithDecimals);
 
         // Transfer Ether to contract owner
         payable(owner()).transfer(msg.value);
@@ -113,7 +191,9 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
 
     function CreateExchangeOffer(uint256 amount, address from) public {
         require(amount > 0, "Amount must be greater than 0");
-        require(balanceOf(from) >= amount, "Not enough BDC token");
+        
+        uint256 amountWithDecimals = amount * 10**_decimals;
+        require(balanceOf(from) >= amountWithDecimals, "Not enough BDC token");
         
         ExchangeCounter++;
         
@@ -121,7 +201,7 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
             id: ExchangeCounter,
             account: msg.sender,
             from: from,
-            amount: amount,
+            amount: amount, // Store the non-decimal amount for calculation
             isApproved: false
         });
 
@@ -135,11 +215,12 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         require(!exchange.isApproved, "Offer already approved");
 
         uint256 totalcost = exchange.amount * withdrawn_price;
+        uint256 amountWithDecimals = exchange.amount * 10**_decimals;
         
         emit DebugLog(OfferId, exchange.amount, withdrawn_price, totalcost, exchange.account, msg.sender);
         
-        // Transfer tokens without multiplying by decimals
-        _transfer(exchange.from, owner(), exchange.amount);
+        // Transfer tokens with decimal adjustment
+        _transfer(exchange.from, owner(), amountWithDecimals);
 
         payable(exchange.account).transfer(totalcost);
         
@@ -187,7 +268,7 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
             name: name,
             weaponid: weaponid,
             description: description,
-            price: price,
+            price: price * 10**_decimals, // Convert to token units with decimals
             isSold: false
         });
 
@@ -200,7 +281,7 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
         require(!listitem.isSold, "Already sold");
         require(balanceOf(from) >= listitem.price, "Insufficient token balance");
 
-        // Transfer tokens without multiplying by decimals
+        // Transfer tokens with decimal adjustment
         _transfer(from, listitem.seller, listitem.price);
 
         listitem.isSold = true;
@@ -237,6 +318,11 @@ contract BidiTOKEN is ERC20, ERC20Burnable, Ownable {
 
         return exchanges;
     }
+    
+    
+
+    
+    
 
     receive() external payable {}
 

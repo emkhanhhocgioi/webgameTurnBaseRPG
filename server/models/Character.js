@@ -47,6 +47,14 @@ const CharacterSchema = new mongoose.Schema({
         type: Array,
         default: [],
     },  
+    itemsEquipped: {
+        type: Object,
+        default: {
+            weapon: null,
+            armor: null,
+            accessory: null,
+        },
+    },
 
     
 })
